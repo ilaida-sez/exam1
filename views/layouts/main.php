@@ -39,11 +39,12 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     echo Nav::widget([
         'options' => ['class' => 'navbar-nav'],
         'items' => [
-            ['label' => 'Home', 'url' => ['/site/index']],
-            ['label' => 'About', 'url' => ['/site/about']],
-            ['label' => 'Contact', 'url' => ['/site/contact']],
+            ['label' => 'Главная', 'url' => ['/site/index']],
             Yii::$app->user->isGuest
-                ? ['label' => 'Login', 'url' => ['/site/login']]
+            ? ['label' => 'Вход', 'url' => ['/site/login']]
+            : ['label' => 'Мои заявки', 'url' => ['/application/index']],
+            Yii::$app->user->isGuest
+                ? ['label' => 'Регистрация', 'url' => ['/site/signup']]
                 : '<li class="nav-item">'
                     . Html::beginForm(['/site/logout'])
                     . Html::submitButton(
@@ -51,7 +52,10 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
                         ['class' => 'nav-link btn btn-link logout']
                     )
                     . Html::endForm()
-                    . '</li>'
+                    . '</li>',
+            (!Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin())
+            ? ['label' => 'Админка', 'url' => ['/site/admin']]
+            : ''
         ]
     ]);
     NavBar::end();

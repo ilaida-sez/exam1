@@ -2,103 +2,160 @@
 
 namespace app\models;
 
-class User extends \yii\base\BaseObject implements \yii\web\IdentityInterface
+use Yii;
+
+/**
+ * This is the model class for table "user".
+ *
+ * @property int $id
+ * @property string $username
+ * @property string $password
+ * @property string $fio
+ * @property string $phone
+ * @property string $email
+ * @property string $role
+ *
+ * @property Application[] $applications
+ */
+class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
 {
-    public $id;
-    public $username;
-    public $password;
-    public $authKey;
-    public $accessToken;
 
-    private static $users = [
-        '100' => [
-            'id' => '100',
-            'username' => 'admin',
-            'password' => 'admin',
-            'authKey' => 'test100key',
-            'accessToken' => '100-token',
-        ],
-        '101' => [
-            'id' => '101',
-            'username' => 'demo',
-            'password' => 'demo',
-            'authKey' => 'test101key',
-            'accessToken' => '101-token',
-        ],
-    ];
-
+    /**
+     * ENUM field values
+     */
+    const ROLE_USER = 'user';
+    const ROLE_ADMIN = 'admin';
 
     /**
      * {@inheritdoc}
      */
-    public static function findIdentity($id)
+    public static function tableName()
     {
-        return isset(self::$users[$id]) ? new static(self::$users[$id]) : null;
+        return 'user';
     }
 
     /**
      * {@inheritdoc}
      */
-    public static function findIdentityByAccessToken($token, $type = null)
+    public function rules()
     {
-        foreach (self::$users as $user) {
-            if ($user['accessToken'] === $token) {
-                return new static($user);
-            }
-        }
-
-        return null;
+        return [
+            [['username', 'password', 'fio', 'phone', 'email'], 'required'],
+            [['role'], 'string'],
+            [['username', 'password', 'fio', 'phone', 'email'], 'string', 'max' => 255],
+            ['role', 'in', 'range' => array_keys(self::optsRole())],
+            [['username'], 'unique'],
+            [['email'], 'unique'],
+            ['role', 'default', 'value'=>'user'],
+            ['role', 'in', 'range'=>['user', 'admin']]
+        ];
     }
 
     /**
-     * Finds user by username
+     * {@inheritdoc}
+     */
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'username' => 'Username',
+            'password' => 'Password',
+            'fio' => 'Fio',
+            'phone' => 'Phone',
+            'email' => 'Email',
+            'role' => 'Role',
+        ];
+    }
+
+    /**
+     * Gets query for [[Applications]].
      *
-     * @param string $username
-     * @return static|null
+     * @return \yii\db\ActiveQuery
      */
-    public static function findByUsername($username)
+    public function getApplications()
     {
-        foreach (self::$users as $user) {
-            if (strcasecmp($user['username'], $username) === 0) {
-                return new static($user);
-            }
-        }
+        return $this->hasMany(Application::class, ['user_id' => 'id']);
+    }
 
-        return null;
+
+    /**
+     * column role ENUM value labels
+     * @return string[]
+     */
+    public static function optsRole()
+    {
+        return [
+            self::ROLE_USER => 'user',
+            self::ROLE_ADMIN => 'admin',
+        ];
     }
 
     /**
-     * {@inheritdoc}
+     * @return string
      */
-    public function getId()
+    public function displayRole()
     {
+        return self::optsRole()[$this->role];
+    }
+
+    /**
+     * @return bool
+     */
+    public function isRoleUser()
+    {
+        return $this->role === self::ROLE_USER;
+    }
+
+    public function setRoleToUser()
+    {
+        $this->role = self::ROLE_USER;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isRoleAdmin()
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function setRoleToAdmin()
+    {
+        $this->role = self::ROLE_ADMIN;
+    }
+
+
+    public function beforeSave($insert) {
+        if(parent::beforeSave($insert)) {
+            if($this->isNewRecord && $this->password) {
+                $this->password = Yii::$app->security->generatePasswordHash($this->password);
+            }
+            return true;
+        }
+        return false;
+    }
+    public function isAdmin() {
+        return $this->role === 'admin';
+    }
+    public static function findByUsername($username) {
+        return static::findOne(['username'=>$username]);
+    }
+    public function validatePassword($password) {
+        return Yii::$app->security->validatePassword($password, $this->password);
+    }
+    public static function findIdentity($id) {
+        return static::findOne($id);
+    }
+    public static function findIdentityByAccessToken($token, $type=null) {
+        return null;
+    }
+    public function getAuthKey() {
+        return null;
+    }
+    public function validateAuthKey($authkey) {
+        return false;
+    }
+    public function getId() {
         return $this->id;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getAuthKey()
-    {
-        return $this->authKey;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function validateAuthKey($authKey)
-    {
-        return $this->authKey === $authKey;
-    }
-
-    /**
-     * Validates password
-     *
-     * @param string $password password to validate
-     * @return bool if password provided is valid for current user
-     */
-    public function validatePassword($password)
-    {
-        return $this->password === $password;
     }
 }
